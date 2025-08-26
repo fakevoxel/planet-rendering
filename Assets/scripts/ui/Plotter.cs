@@ -2,6 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+// literally ALL this does is plot points when given an array.
+// good for the map view, thats about all right now
 public class Plotter : MonoBehaviour
 {
     public LineRenderer l;

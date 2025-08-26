@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using UnityEngine.UI;
 using UnityEngine;
 
-public class SolarSystemController : MonoBehaviour
+public class TrackingManager : MonoBehaviour
 {
-    private static SolarSystemController _instance;
+    private static TrackingManager _instance;
 
-    public static SolarSystemController I
+    public static TrackingManager Instance
     {
         get => _instance;
         private set
@@ -29,7 +29,7 @@ public class SolarSystemController : MonoBehaviour
 
     public Transform t_plotterContainer;
     public Transform t_iconContainer;
-    public BodyPosition[] bodies; // sun is always first
+    public trackedbody_mono[] bodies;
     private float editorRefreshDelay;
     private float lastEditorRefresh;
 
@@ -37,7 +37,7 @@ public class SolarSystemController : MonoBehaviour
 
     void Awake()
     {
-        I = this;
+        Instance = this;
         Application.targetFrameRate = 60;
         universalTime = 0;
         universalTimeScale = 1;
@@ -45,8 +45,34 @@ public class SolarSystemController : MonoBehaviour
         lastEditorRefresh = -10;
     }
 
-    public void InitializeSystem()
+    public void InitializeSystem(solarsystem system)
     {
+        bodies = new trackedbody_mono[system.bodies.Length];
+        // first, before anything else, we need to create the objects for the planets based on the solar system
+        for (int i = 0; i < system.bodies.Length; i++)
+        {
+            GameObject g_newBody = new GameObject();
+            g_newBody.name = system.bodies[i].name;
+
+            trackedbody_mono comp = g_newBody.AddComponent<trackedbody_mono>();
+            // pass over the data
+            comp.config = system.bodies[i].config;
+            comp.orbit = system.bodies[i].orbit;
+            comp.pose = system.bodies[i].pose;
+
+            comp.orbit.data = comp;
+
+            g_newBody.transform.SetParent(transform);
+            bodies[i] = comp;
+
+            if (system.bodies[i].orbit.parentIndex != -1)
+            {
+                bodies[i].orbit.parent = bodies[system.bodies[i].orbit.parentIndex].orbit;
+            }
+        }
+
+        // *** FROM HERE ON WE USE LOCAL BODIES ARRAY ***
+
         CalculatePlanetOrbits();
 
         // initializing the plotters
@@ -86,7 +112,7 @@ public class SolarSystemController : MonoBehaviour
         t_newPlotter.gameObject.name = bodies[bodyIndex].name;
         t_newPlotter.gameObject.layer = 6;
 
-        if (bodies[bodyIndex].isGrandparent) { return; }
+        if (bodies[bodyIndex].orbit.isGrandparent) { return; }
 
         t_newPlotter.gameObject.AddComponent<LineRenderer>();
         t_newPlotter.gameObject.GetComponent<LineRenderer>().sharedMaterial = m_line;
@@ -98,7 +124,7 @@ public class SolarSystemController : MonoBehaviour
     {
         Plotter comp = t_plotterContainer.GetChild(bodyIndex).GetComponent<Plotter>();
         if (comp == null) { return; }
-        comp.Plot(bodies[bodyIndex].SampleFullOrbit(2000));
+        comp.Plot(bodies[bodyIndex].orbit.SampleFullOrbit(2000));
     }
 
     public void CalculatePlanetOrbits()
@@ -111,7 +137,7 @@ public class SolarSystemController : MonoBehaviour
         // initializing the bodies
         for (int i = 0; i < bodies.Length; i++)
         {
-            bodies[i].Initialize();
+            bodies[i].orbit.Initialize();
         }
     }
 
@@ -137,7 +163,7 @@ public class SolarSystemController : MonoBehaviour
         for (int n = 0; n < t_iconContainer.childCount; n++)
         {
             // UNIVERSAL POSITION PLS THX
-            t_iconContainer.GetChild(n).position = Camera.main.WorldToScreenPoint(bodies[n].position * Sys.mapViewScalingFactor);
+            t_iconContainer.GetChild(n).position = Camera.main.WorldToScreenPoint(bodies[n].pose.position * Sys.mapViewScalingFactor);
         }
     }
 
@@ -145,8 +171,8 @@ public class SolarSystemController : MonoBehaviour
     {
         for (int i = 0; i < bodies.Length; i++)
         {
-            if (bodies[i].isGrandparent) { continue; }
-            bodies[i].transform.position = bodies[i].GetPositionAtTime(universalTime);
+            if (bodies[i].orbit.isGrandparent) { continue; }
+            bodies[i].transform.position = bodies[i].orbit.GetPositionAtTime(universalTime);
         }
     }
 
@@ -154,6 +180,38 @@ public class SolarSystemController : MonoBehaviour
     // using the CameraController's position var (NOT transform.position) to get where the camera is in space
     public void UpdateAllPlanetTransforms()
     {
-        
+
+    }
+
+    public void IncreaseTimewarpSpeed()
+    {
+        if (universalTimeScale == -1)
+        {
+            universalTimeScale = 1;
+        }
+        else if (universalTimeScale < 0)
+        {
+            universalTimeScale /= 10;
+        }
+        else
+        {
+            universalTimeScale *= 10;
+        }
+    }
+
+    public void DecreaseTimewarpSpeed()
+    {
+        if (universalTimeScale == 1)
+        {
+            universalTimeScale = -1;
+        }
+        else if (universalTimeScale < 0)
+        {
+            universalTimeScale *= 10;
+        }
+        else
+        {
+            universalTimeScale /= 10;
+        }
     }
 }

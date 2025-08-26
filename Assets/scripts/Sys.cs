@@ -1,5 +1,7 @@
 using UnityEngine;
 
+// GLOBALLY ACCESSIBLE INFORMATION
+// basically one big storage container
 public class Sys : MonoBehaviour
 {
     void Awake()

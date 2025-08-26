@@ -10,19 +10,22 @@ public enum ProgramStartMode
 }
 
 // okay so we're not technically a *game* yet but still using this concept because I thought it worked well
+
+// FOR REFERENCE: like main.java, all we're doing is calling other functions
 public class GameManager : MonoBehaviour
 {
     public ProgramStartMode startMode;
+    public solarsystem loadedSystem; // will eventually be loaded from disk
 
     void Start()
     {
         if (startMode == ProgramStartMode.InstantLoad)
         {
-            SolarSystemController.I.InitializeSystem();
+            TrackingManager.Instance.InitializeSystem(loadedSystem);
         }
         else if (startMode == ProgramStartMode.Editor)
         {
-            SolarSystemController.I.InitializeSystem();
+            TrackingManager.Instance.InitializeSystem(loadedSystem);
         }
     }
 
@@ -30,12 +33,12 @@ public class GameManager : MonoBehaviour
     {
         if (startMode == ProgramStartMode.InstantLoad)
         {
-            SolarSystemController.I.UpdateAllPlanets();
+            TrackingManager.Instance.UpdateAllPlanets();
         }
         else if (startMode == ProgramStartMode.Editor)
         {
-            SolarSystemController.I.RefreshAllOrbits();
-            SolarSystemController.I.UpdateAllPlanetIcons();
+            TrackingManager.Instance.RefreshAllOrbits();
+            TrackingManager.Instance.UpdateAllPlanetIcons();
         }
     }
 }

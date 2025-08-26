@@ -5,13 +5,14 @@ using UnityEngine;
 
 // all hail kepler
 // keeping as Mono so I can ref transform
-public class BodyPosition : MonoBehaviour
+[System.Serializable]
+public class cbt_orbit
 {
     public bool isGrandparent; // sun don't move 
-    public BodyPosition p; // (parent), grabbing parents data from here (namely mass and position) instead of having dupe variables
+    public int parentIndex;
+    public cbt_orbit parent; // (parent), grabbing parents data from here (namely mass and position) instead of having dupe variables
 
-    // these vars are used so I don't have to do math more than once
-    public Vector3 position; // updated on call of GetPositionAtTime()
+    public trackedbody_mono data;
 
     // i for initial
     public Vector3 iPosition;
@@ -43,15 +44,15 @@ public class BodyPosition : MonoBehaviour
         // remember engine space vs. game space?
 
         // also assuming everything happens in the x, z plane (for now)
-        iRadius = Vector3.Distance(p.iPosition, iPosition);
+        iRadius = Vector3.Distance(parent.iPosition, iPosition);
 
-        iAngle = Mathf.Atan2((iPosition - p.iPosition).z, (iPosition - p.iPosition).x);
+        iAngle = Mathf.Atan2((iPosition - parent.iPosition).z, (iPosition - parent.iPosition).x);
 
         iRadialVelocity = iVelocity.z * Mathf.Sin(iAngle) + iVelocity.x * Mathf.Cos(iAngle);
         iTransverseVelocity = iVelocity.z * Mathf.Cos(iAngle) - iVelocity.x * Mathf.Sin(iAngle);
 
-        iM = Sys.gravConstant * p.GetComponent<BodyConfig>().mass / iRadius / iRadius / iTransverseVelocity / iTransverseVelocity; // GetComponent is okay cuz its run once
-        iN = Mathf.Sqrt((   (1 / iRadius) - iM  ) * (   (1 / iRadius) - iM  ) + (   iRadialVelocity / iRadius / iTransverseVelocity     ) * (       iRadialVelocity / iRadius / iTransverseVelocity     ));
+        iM = Sys.gravConstant * parent.data.config.mass / iRadius / iRadius / iTransverseVelocity / iTransverseVelocity; // GetComponent is okay cuz its run once
+        iN = Mathf.Sqrt(((1 / iRadius) - iM) * ((1 / iRadius) - iM) + (iRadialVelocity / iRadius / iTransverseVelocity) * (iRadialVelocity / iRadius / iTransverseVelocity));
 
         iPhaseShift = Mathf.Sign(iRadialVelocity * iTransverseVelocity) * Mathf.Acos(((1 / iRadius) - iM) / iN) - iAngle;
 
@@ -79,21 +80,23 @@ public class BodyPosition : MonoBehaviour
         float step = (Mathf.PI - 0) / (float)n;
         float sum = (EccentricIntegrationValue(0, meanAnomaly) + EccentricIntegrationValue(Mathf.PI, meanAnomaly)) * 0.5f;
 
-        for (int i = 1; i < n; i++) {
+        for (int i = 1; i < n; i++)
+        {
             sum += EccentricIntegrationValue((float)i * (float)step, meanAnomaly);
         }
 
         return sum * step;
     }
 
-    public float EccentricIntegrationValue(float phi, float meanAnomaly) {
+    public float EccentricIntegrationValue(float phi, float meanAnomaly)
+    {
         return Mathf.Floor((phi - orbitalEccentricity * Mathf.Sin(phi) + meanAnomaly) / (Mathf.PI * 2f)) - Mathf.Floor((phi - orbitalEccentricity * Mathf.Sin(phi) - meanAnomaly) / (Mathf.PI * 2f));
     }
 
     public float TrueAnomaly(float time)
     {
         float eccentricAnomaly = EccentricAnomaly(time);
-        
+
         return 2 * Mathf.Atan(Mathf.Tan(eccentricAnomaly / 2f) * Mathf.Sqrt((iM + iN) / (iM - iN))) - iPhaseShift;
     }
 
@@ -103,7 +106,7 @@ public class BodyPosition : MonoBehaviour
         float radius = DistFromFocus(trueAnomaly);
 
         Vector3 result = new Vector3(radius * Mathf.Cos(trueAnomaly), 0, radius * Mathf.Sin(trueAnomaly));
-        position = result;
+        data.pose.position = result;
         return result;
     }
 
@@ -114,7 +117,7 @@ public class BodyPosition : MonoBehaviour
         for (int i = 0; i < pointCount; i++)
         {
             float currentTime = orbitalPeriod / ((float)pointCount - 1f) * (float)i;
-            
+
             result[i] = GetPositionAtTime(currentTime);
         }
 
