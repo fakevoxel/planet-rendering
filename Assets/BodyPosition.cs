@@ -1,0 +1,123 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+// all hail kepler
+// keeping as Mono so I can ref transform
+public class BodyPosition : MonoBehaviour
+{
+    public bool isGrandparent; // sun don't move 
+    public BodyPosition p; // (parent), grabbing parents data from here (namely mass and position) instead of having dupe variables
+
+    // these vars are used so I don't have to do math more than once
+    public Vector3 position; // updated on call of GetPositionAtTime()
+
+    // i for initial
+    public Vector3 iPosition;
+    public Vector3 iVelocity;
+    public float iRadius;
+    public float iAngle;
+    public float iRadialVelocity;
+    public float iTransverseVelocity;
+    public float iPhaseShift;
+    public float iM;
+    public float iN;
+
+    public float orbitalPeriod;
+    public float orbitalEccentricity;
+
+    public void Initialize()
+    {
+        // STARTING CONDITIONS:
+        // set via inspector
+
+        // this.isGrandparent = isGrandparent;
+        // iPosition = pos;
+        // iVelocity = v;
+
+        if (isGrandparent) { return; } // no params for the sun
+
+        // ORBITAL PARAMS:
+        // we CANNOT use unity positions because those won't be reliable
+        // remember engine space vs. game space?
+
+        // also assuming everything happens in the x, z plane (for now)
+        iRadius = Vector3.Distance(p.iPosition, iPosition);
+
+        iAngle = Mathf.Atan2((iPosition - p.iPosition).z, (iPosition - p.iPosition).x);
+
+        iRadialVelocity = iVelocity.z * Mathf.Sin(iAngle) + iVelocity.x * Mathf.Cos(iAngle);
+        iTransverseVelocity = iVelocity.z * Mathf.Cos(iAngle) - iVelocity.x * Mathf.Sin(iAngle);
+
+        iM = Sys.gravConstant * p.GetComponent<BodyConfig>().mass / iRadius / iRadius / iTransverseVelocity / iTransverseVelocity; // GetComponent is okay cuz its run once
+        iN = Mathf.Sqrt((   (1 / iRadius) - iM  ) * (   (1 / iRadius) - iM  ) + (   iRadialVelocity / iRadius / iTransverseVelocity     ) * (       iRadialVelocity / iRadius / iTransverseVelocity     ));
+
+        iPhaseShift = Mathf.Sign(iRadialVelocity * iTransverseVelocity) * Mathf.Acos(((1 / iRadius) - iM) / iN) - iAngle;
+
+        orbitalEccentricity = iN / iM;
+
+        orbitalPeriod = (iM * 2 * Mathf.PI) / (Mathf.Abs(iTransverseVelocity) * iRadius * Mathf.Pow(iM * iM - iN * iN, 1.5f));
+    }
+
+    // the polar function for an elipse, adapted
+    public float DistFromFocus(float angle)
+    {
+        return 1 / (iM + iN * Mathf.Cos(angle + iPhaseShift));
+    }
+
+    public float MeanAnomaly(float time)
+    {
+        return Mathf.Pow((iM * iM - iN * iN), 3f / 2f) / iM * iRadius * iTransverseVelocity * time + 2 * Mathf.Atan(Mathf.Sqrt((iM - iN) / (iM + iN)) * Mathf.Tan((iAngle + iPhaseShift) / 2)) - orbitalEccentricity * Mathf.Sqrt(iM * iM - iN * iN) * Mathf.Sin(iAngle + iPhaseShift) * DistFromFocus(iAngle);
+    }
+
+    public float EccentricAnomaly(float time)
+    {
+        float meanAnomaly = MeanAnomaly(time);
+
+        int n = 100; // precision of integral
+        float step = (Mathf.PI - 0) / (float)n;
+        float sum = (EccentricIntegrationValue(0, meanAnomaly) + EccentricIntegrationValue(Mathf.PI, meanAnomaly)) * 0.5f;
+
+        for (int i = 1; i < n; i++) {
+            sum += EccentricIntegrationValue((float)i * (float)step, meanAnomaly);
+        }
+
+        return sum * step;
+    }
+
+    public float EccentricIntegrationValue(float phi, float meanAnomaly) {
+        return Mathf.Floor((phi - orbitalEccentricity * Mathf.Sin(phi) + meanAnomaly) / (Mathf.PI * 2f)) - Mathf.Floor((phi - orbitalEccentricity * Mathf.Sin(phi) - meanAnomaly) / (Mathf.PI * 2f));
+    }
+
+    public float TrueAnomaly(float time)
+    {
+        float eccentricAnomaly = EccentricAnomaly(time);
+        
+        return 2 * Mathf.Atan(Mathf.Tan(eccentricAnomaly / 2f) * Mathf.Sqrt((iM + iN) / (iM - iN))) - iPhaseShift;
+    }
+
+    public Vector3 GetPositionAtTime(float time)
+    {
+        float trueAnomaly = TrueAnomaly(time);
+        float radius = DistFromFocus(trueAnomaly);
+
+        Vector3 result = new Vector3(radius * Mathf.Cos(trueAnomaly), 0, radius * Mathf.Sin(trueAnomaly));
+        position = result;
+        return result;
+    }
+
+    public Vector3[] SampleFullOrbit(int pointCount)
+    {
+        Vector3[] result = new Vector3[pointCount];
+
+        for (int i = 0; i < pointCount; i++)
+        {
+            float currentTime = orbitalPeriod / ((float)pointCount - 1f) * (float)i;
+            
+            result[i] = GetPositionAtTime(currentTime);
+        }
+
+        return result;
+    }
+}
