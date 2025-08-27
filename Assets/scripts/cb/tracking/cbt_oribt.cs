@@ -44,9 +44,9 @@ public class cbt_orbit
         // remember engine space vs. game space?
 
         // also assuming everything happens in the x, z plane (for now)
-        iRadius = Vector3.Distance(parent.iPosition, iPosition);
+        iRadius = iPosition.magnitude;
 
-        iAngle = Mathf.Atan2((iPosition - parent.iPosition).z, (iPosition - parent.iPosition).x);
+        iAngle = Mathf.Atan2(iPosition.z, iPosition.x);
 
         iRadialVelocity = iVelocity.z * Mathf.Sin(iAngle) + iVelocity.x * Mathf.Cos(iAngle);
         iTransverseVelocity = iVelocity.z * Mathf.Cos(iAngle) - iVelocity.x * Mathf.Sin(iAngle);
@@ -59,6 +59,9 @@ public class cbt_orbit
         orbitalEccentricity = iN / iM;
 
         orbitalPeriod = (iM * 2 * Mathf.PI) / (Mathf.Abs(iTransverseVelocity) * iRadius * Mathf.Pow(iM * iM - iN * iN, 1.5f));
+
+        data.pose.localPosition = new DoubleVector3(iPosition);
+        data.pose.velocity = new DoubleVector3(iVelocity);
     }
 
     // the polar function for an elipse, adapted
@@ -72,11 +75,11 @@ public class cbt_orbit
         return Mathf.Pow((iM * iM - iN * iN), 3f / 2f) / iM * iRadius * iTransverseVelocity * time + 2 * Mathf.Atan(Mathf.Sqrt((iM - iN) / (iM + iN)) * Mathf.Tan((iAngle + iPhaseShift) / 2)) - orbitalEccentricity * Mathf.Sqrt(iM * iM - iN * iN) * Mathf.Sin(iAngle + iPhaseShift) * DistFromFocus(iAngle);
     }
 
-    public float EccentricAnomaly(float time)
+    public float EccentricAnomaly(float time, int p)
     {
         float meanAnomaly = MeanAnomaly(time);
 
-        int n = 100; // precision of integral
+        int n = p; // precision of integral
         float step = (Mathf.PI - 0) / (float)n;
         float sum = (EccentricIntegrationValue(0, meanAnomaly) + EccentricIntegrationValue(Mathf.PI, meanAnomaly)) * 0.5f;
 
@@ -93,21 +96,21 @@ public class cbt_orbit
         return Mathf.Floor((phi - orbitalEccentricity * Mathf.Sin(phi) + meanAnomaly) / (Mathf.PI * 2f)) - Mathf.Floor((phi - orbitalEccentricity * Mathf.Sin(phi) - meanAnomaly) / (Mathf.PI * 2f));
     }
 
-    public float TrueAnomaly(float time)
+    public float TrueAnomaly(float time, int p)
     {
-        float eccentricAnomaly = EccentricAnomaly(time);
+        float eccentricAnomaly = EccentricAnomaly(time, p);
 
         return 2 * Mathf.Atan(Mathf.Tan(eccentricAnomaly / 2f) * Mathf.Sqrt((iM + iN) / (iM - iN))) - iPhaseShift;
     }
 
-    public Vector3 GetPositionAtTime(float time)
+    public DoubleVector3 GetPositionAtTime(float time, int precision)
     {
-        float trueAnomaly = TrueAnomaly(time);
+        float trueAnomaly = TrueAnomaly(time, precision);
         float radius = DistFromFocus(trueAnomaly);
 
         Vector3 result = new Vector3(radius * Mathf.Cos(trueAnomaly), 0, radius * Mathf.Sin(trueAnomaly));
-        data.pose.position = result;
-        return result;
+        //data.pose.position = new DoubleVector3(result).Add(parent.data.pose.position);
+        return new DoubleVector3(result);
     }
 
     public Vector3[] SampleFullOrbit(int pointCount)
@@ -118,7 +121,7 @@ public class cbt_orbit
         {
             float currentTime = orbitalPeriod / ((float)pointCount - 1f) * (float)i;
 
-            result[i] = GetPositionAtTime(currentTime);
+            result[i] = GetPositionAtTime(currentTime, 1000).ToVector3();
         }
 
         return result;

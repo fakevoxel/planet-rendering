@@ -13,7 +13,7 @@ public class cbr_fixedentity {
     public cbr_fixedentity(Transform _ref, int _body) {
         reference = _ref;
         bodyIndex = _body;
-        Transform planetTransform = CBManager.Instance.celestialBodies[bodyIndex].reference;
+        Transform planetTransform = RenderingManager.Instance.celestialBodies[bodyIndex].reference;
         defaultPosition = (_ref.position - planetTransform.position) / planetTransform.localScale.x; // difference in position relative to planet
         defaultRotation = _ref.eulerAngles - planetTransform.eulerAngles; // difference in rotation relative to planet
         defaultScale = _ref.localScale.x;
@@ -21,19 +21,19 @@ public class cbr_fixedentity {
 
     public void Refresh() {
         // for now just set the unity position to game position
-        Transform planetTransform = CBManager.Instance.celestialBodies[bodyIndex].reference;
-        reference.position = planetTransform.position + CBManager.Instance.AdjustVector(defaultPosition, 0) * planetTransform.localScale.x;
+        Transform planetTransform = RenderingManager.Instance.celestialBodies[bodyIndex].reference;
+        reference.position = planetTransform.position + RenderingManager.Instance.AdjustVector(defaultPosition, 0) * planetTransform.localScale.x;
         reference.eulerAngles = planetTransform.eulerAngles + defaultRotation;
-        reference.localScale = Vector3.one * defaultScale * (planetTransform.localScale.x / CBManager.Instance.celestialBodies[bodyIndex].defaultScale);
+        reference.localScale = Vector3.one * defaultScale * (planetTransform.localScale.x / RenderingManager.Instance.celestialBodies[bodyIndex].defaultScale);
     }
 
     public Vector3 GetPosition() {
-        Transform planetTransform = CBManager.Instance.celestialBodies[bodyIndex].reference;
+        Transform planetTransform = RenderingManager.Instance.celestialBodies[bodyIndex].reference;
         return planetTransform.position + defaultPosition * planetTransform.localScale.x;
     }
 
     public Vector3 GetRotation() {
-        Transform planetTransform = CBManager.Instance.celestialBodies[bodyIndex].reference;
+        Transform planetTransform = RenderingManager.Instance.celestialBodies[bodyIndex].reference;
         return reference.eulerAngles = planetTransform.eulerAngles + defaultRotation;
     }
 }

@@ -8,11 +8,12 @@ public class Plotter : MonoBehaviour
 {
     public LineRenderer l;
     public float lineWidth;
+    private int parentIndex;
 
-    public void Plot(Vector3[] points)
+    public void Plot(Vector3[] points, int parentIndex)
     {
         //temp
-        lineWidth = 1;
+        lineWidth = 0.1f;
         l.startWidth = 0.1f;
         l.endWidth = 0.1f;
 
@@ -23,5 +24,15 @@ public class Plotter : MonoBehaviour
             scaledPoints[i] = points[i] * Sys.mapViewScalingFactor;
         }
         l.SetPositions(scaledPoints);
+
+        this.parentIndex = parentIndex;
+    }
+
+    void Update()
+    {
+        if (parentIndex != -1)
+        {
+            transform.position = TrackingManager.Instance.bodies[parentIndex].pose.GetPosition().Mul(Sys.mapViewScalingFactor).ToVector3();
+        }
     }
 }
